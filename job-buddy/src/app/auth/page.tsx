@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { FcGoogle } from 'react-icons/fc';
 import { FaUserShield } from 'react-icons/fa';
@@ -81,16 +83,86 @@ export default function AuthPage() {
   }, [isLogin, reset]);
 
   // Form submission handler
+  const router = useRouter();
+
+  // Define a type for Supabase auth error
+  type SupabaseAuthError = {
+    status?: number;
+    message?: string;
+    error_description?: string;
+  };
+
+  const getErrorMessage = (error: unknown): string => {
+    if (!error) return 'An unknown error occurred';
+    
+    // Type guard to check if error is a SupabaseAuthError
+    const isSupabaseError = (err: unknown): err is SupabaseAuthError => {
+      return (
+        typeof err === 'object' &&
+        err !== null &&
+        ('status' in err || 'message' in err || 'error_description' in err)
+      );
+    };
+
+    // Handle Supabase AuthError
+    if (isSupabaseError(error) && error.status) {
+      switch (error.status) {
+        case 400:
+          return error.message || 'Invalid email or password';
+        case 401:
+          return 'Invalid login credentials';
+        case 404:
+          return 'No account found with this email';
+        case 429:
+          return 'Too many login attempts. Please try again later.';
+      }
+    }
+    
+    // Handle other error formats
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return 'An error occurred during authentication';
+  };
+
   const onSubmit = async (data: LoginFormData | SignupFormData) => {
     try {
       setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      showToast('Success', isLogin ? 'Logged in successfully!' : 'Account created successfully!');
+      if (isLogin) {
+        // Handle login
+        const { error } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
+
+        if (error) {
+          const errorMessage = getErrorMessage(error);
+          throw new Error(errorMessage);
+        }
+        
+        showToast('Success', 'Logged in successfully!');
+        router.push('/dashboard'); // Redirect to dashboard after successful login
+      } else {
+        // Handle signup
+        const { error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: {
+              name: (data as SignupFormData).name,
+            },
+          },
+        });
+
+        if (error) throw error;
+        
+        showToast('Success', 'Account created successfully! Please check your email for verification.');
+        setIsLogin(true); // Switch back to login form
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      showToast('Error', errorMessage, 'destructive');
+      showToast('Authentication Failed', errorMessage, 'destructive');
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +257,7 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 mb-10">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-xs font-medium text-gray-300">
                       Password
@@ -230,7 +302,7 @@ export default function AuthPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2"
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 transition-all duration-200 hover:shadow-md hover:shadow-indigo-500/30"
                   disabled={isLoading}
                 >
                   {isLoading ? (
