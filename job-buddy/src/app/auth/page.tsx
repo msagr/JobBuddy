@@ -13,6 +13,13 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import dynamic from 'next/dynamic';
+
+// Dynamically import the BackgroundAnimation component with no SSR
+const BackgroundAnimation = dynamic(
+  () => import('@/components/ui/background-animation'),
+  { ssr: false }
+);
 
 // Form validation schemas
 const loginSchema = z.object({
@@ -94,9 +101,11 @@ export default function AuthPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="min-h-screen relative">
+      <BackgroundAnimation />
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
       <Toast.Provider>
-        <div className="w-full max-w-4xl bg-gray-800 rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 border border-gray-700">
+        <div className="w-full max-w-4xl bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 border border-gray-700 z-10">
           {/* Left Side - Auth Form */}
           <div className="p-6 md:p-8 flex flex-col">
             <div className="mb-6 text-center">
@@ -307,6 +316,7 @@ export default function AuthPage() {
         </Toast.Root>
         <Toast.Viewport className="fixed top-0 right-0 p-4 w-full max-w-sm m-0 z-[100] outline-none" />
       </Toast.Provider>
+      </div>
     </div>
   );
 }
